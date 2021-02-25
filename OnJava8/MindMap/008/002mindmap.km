@@ -1,0 +1,38 @@
+{
+    "root": {
+        "data": {
+            "id": "c9ihsl9r91k0",
+            "created": 1614244150655,
+            "text": "复用"
+        },
+        "children": [
+            {
+                "data": {
+                    "id": "c9iht114bfk0",
+                    "created": 1614244184961,
+                    "text": "组合",
+                    "layout_mind_offset": {
+                        "x": -13,
+                        "y": -100
+                    }
+                },
+                "children": []
+            },
+            {
+                "data": {
+                    "id": "c9iht5fb3ow0",
+                    "created": 1614244194526,
+                    "text": "继承",
+                    "layout_mind_offset": {
+                        "x": 372,
+                        "y": 68
+                    }
+                },
+                "children": []
+            }
+        ]
+    },
+    "template": "default",
+    "theme": "fresh-blue",
+    "version": "1.4.43"
+}
