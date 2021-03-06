@@ -93,7 +93,7 @@ beanDefinitionReader.loadBeanDefinitions("配置文件路径");//就取得了一
 ![BeanDefinitionReader](./Image/002/BeanDefinitionReader继承体系.png)  
 
 Properties文件和XML文件，都是类似的，由于XML使用比较普遍，以XML为例说明  
-绘制加工图纸  
+绘制加工图纸([more](./))  
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" 
@@ -116,23 +116,80 @@ Properties文件和XML文件，都是类似的，由于XML使用比较普遍，�
 ```
 给工厂图纸，按照图纸加工得到要的产品  
 ```java
-
+public static void main(String[] args)
+{
+    DefaultListableBeanFactory beanRegistry = new DefaultListableBeanFactory();
+    BeanFactory container = (BeanFactory)bindViaXMLFile(beanRegistry);//给工厂图纸，让工厂干活了
+    FXNewsProvider newsProvider = (FXNewsProvider)container.getBean("djNewsProvider");//问工厂要产品
+    newsProvider.getAndPersistNews();//使用产品
+}
+public static BeanFactory bindViaXMLFile(BeanDefinitionRegistry registry) { 
+    XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(registry);//BeanDefinitionReader干活了
+    reader.loadBeanDefinitions("classpath:../news-config.xml");//干活要图纸，去哪里那图纸
+    return (BeanFactory)registry;//业务对象都准备好了，工厂准备就绪
+}
 
 ```
 
+3. 注解实现  
+>应用程序使用了Spring 2.5以及Java 5或者更高版本的情况之下。
 
+使用起来非常简单，大部分工作都是注解的实现代码里面帮我们解决了，我们只需要给出合适的标记，告诉工厂要处理那些地方就行  
 
-
-
-
-
-
-3. 元数据实现  
-
-
-
-
-
+先把我们要的东西标记出来，告诉工厂那些是要处理的，要怎么处理
+```java
+@Component//配合Spring 2.5中新的classpath-scanning功能使用，告诉Spring容器这是要关注的类
+public class FXNewsProvider
+{
+    @Autowired//告知Spring容器需要为当前对象注入哪些依赖对象。
+    private IFXNewsListener newsListener;
+    @Autowired//告知Spring容器需要为当前对象注入哪些依赖对象。
+    private IFXNewsPersister newPersistener;
+    public FXNewsProvider(IFXNewsListener newsListner,IFXNewsPersister newsPersister)
+    {
+        this.newsListener = newsListner;
+        this.newPersistener = newsPersister;
+    }
+    ...
+}
+@Component
+public class DowJonesNewsListener implements IFXNewsListener
+{
+    ...
+}
+@Component
+public class DowJonesNewsPersister implements IFXNewsPersister
+{
+    ...
+}
+```
+上面的这些注解要起效，当然还要打开一个开关，Spring的配置文件中增加一个“触发器”  
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans  xmlns="http://www.springframework.org/schema/beans" 
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xmlns:context="http://www.springframework.org/schema/context" 
+        xmlns:tx="http://www.springframework.org/schema/tx" 
+        xsi:schemaLocation="http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+        http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context-2.5.xsd 
+        http://www.springframework.org/schema/tx 
+        http://www.springframework.org/schema/tx/spring-tx-2.5.xsd">
+<context:component-scan base-package="cn.spring21.project.base.package"/>
+<!-- 打开开关 -->
+</beans>
+<context:component-scan/>
+```
+使用方法，贼简单  
+```java
+public static void main(String[] args)
+{
+    ApplicationContext ctx = new ClassPathXmlApplicationContext("配置文件路径");
+    FXNewsProvider newsProvider = (FXNewsProvider)container.getBean("FXNewsProvider");
+    newsProvider.getAndPersistNews();
+}
+```
 
 
 
