@@ -93,7 +93,7 @@ beanDefinitionReader.loadBeanDefinitions("配置文件路径");//就取得了一
 ![BeanDefinitionReader](./Image/002/BeanDefinitionReader继承体系.png)  
 
 Properties文件和XML文件，都是类似的，由于XML使用比较普遍，以XML为例说明  
-绘制加工图纸([more](./))  
+绘制加工图纸([more](./002001001常见XML使用记录.md))  
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" 
