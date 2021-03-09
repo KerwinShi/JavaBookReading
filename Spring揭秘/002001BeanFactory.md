@@ -191,6 +191,7 @@ public static void main(String[] args)
 }
 ```
 
+以上就是spring ioc的Beanfactory的基本使用的三种方式了
 
 
 
