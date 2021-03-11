@@ -193,6 +193,56 @@ public static void main(String[] args)
 
 以上就是spring ioc的Beanfactory的基本使用的三种方式了
 
+# 一探究竟（Spring IoC背后的秘密）
+
+知道了怎么使用之后，我们就该去了解一些更深入的东西了，背后的实现原理是什么呢？  
+
+Spring的IoC在实现的时候大致上分为了两个阶段，容器启动和Bean实例化阶段，在这两个阶段中都有相应的扩展点，好让我们根据自己的需要加入自定义的扩展逻辑。  
+
+## 第一阶段 容器启动
+
+
+### BeanFactoryPostProcessor接口  
+在容器实现的第一阶段最后加入一道工序，让我们对最终的BeanDefinition做一些额外的操作，比如修改其中bean定义的某些属性，为bean定义增加其他信息等。  
+![BeanFacoryPostProcessor的继承体系](./Image/002/BeanFacoryPostProcessor的继承体系.png)
+从这里面可以看出，当我们设计了多个BeanFacoryPostProcessor来处理定义的bean的是时候，为了可以正确完成指定改变动作，我们就需要制定一下顺序，就需要实现接口Ordered。  
+
+话不多说，还是看看使用的大致方式比较直观（这里，spring的BeanFactory和ApplicationContext有所区别）  
+
+对于BeanFactory，我们需要手动去添加相关代码实现  
+```java
+// 声明将被后处理的BeanFactory实例
+ConfigurableListableBeanFactory beanFactory = new XmlBeanFactory(new ClassPathResource("...")); 
+// 声明要使用的BeanFactoryPostProcessor 
+PropertyPlaceholderConfigurer propertyPostProcessor = new PropertyPlaceholderConfigurer(); 
+propertyPostProcessor.setLocation(new ClassPathResource("...")); 
+// 执行后处理操作
+propertyPostProcessor.postProcessBeanFactory(beanFactory); 
+```  
+
+对于ApplicationContext，简单一些，配置好以后就自动执行了  
+```xml  
+<beans> 
+    <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"> 
+        <property name="locations"> 
+            <list> 
+                <value>conf/jdbc.properties</value> 
+                <value>conf/mail.properties</value> 
+            </list>
+        </property> 
+    </bean> 
+    ... 
+</beans>
+
+```
+
+
+
+
+
+
+
+## 第二阶段 Bean实例化阶段
 
 
 
