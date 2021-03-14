@@ -235,12 +235,141 @@ propertyPostProcessor.postProcessBeanFactory(beanFactory);
 </beans>
 
 ```
+几个常见的BeanFactoryPostProcessor  
+1. PropertyPlaceholderConfigurer  
+对于一些系统管理相关的信息，如数据库连接信息等，通常配置到一个properties文件，而不是与XML文件配置到一起，PropertyPlaceholderConfigurer的作用就是允许在xml中使用占位符，从properties文件加载对应的数据(BeanFactory完成第一阶段配置后，还是以占位符形式存在，当ropertyPlaceholderConfigurer被使用时，使用配置文件中的对应属性替换，完成真正的配置信息)。这里不仅仅会从配置文件properties中加载配置信息，还会从Java的System类的Properties中检查（可以设置模式，要不要检查，怎么检查）。
+```xml
+<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">  
+    <property name="url"> 
+        <value>${jdbc.url}</value>  
+    </property> 
+</bean> 
+```
+```properties
+jdbc.url=jdbc:mysql://server/MAIN?useUnicode=true&characterEncoding=ms932&failOverReadOnly=false&roundRobinLoadBalance=true
+```
 
+2. PropertyOverrideConfigurer  
+人如其名，这个PropertyOverrideConfigurer是用来修改替换bean中定义的property信息的，配置文件的规则是：`beanName.propertyName=value`,properties文件中的键是以XML中配置的bean定义的beanName为标志开始的（通常就是id指定的值），后面跟着相应被覆盖的property的名称。没有指定的那就使用原来的。  
 
+从BeanFactoryPostProcessor的继承体系中可以看到，PropertyPlaceholderConfigurer和PropertyOverrideConfigurer都继承自PropertyResourceConfigurer，PropertyResourceConfigurer里面有一个convertPropertyValue方法，可以被覆盖，用来实现配置文件配置项密文转换为明文后在配置到对于定义的属性中等操作。
 
+3. CustomEditorConfigurer  
+前面的两个人都是把bean中定义的属性进行修改实现某种目的的，这个只是把后面可能要用到的信息注册到容器，不会去改动原来定义的bean。  
+通过XML加载得到的都是String类型，但是我们最后要用的是各种各样的类型的对象，需要PropertyEditor完成类型的转换工作（每种对象类型都需要有一个PropertyEditor，Spring容器内部默认采用JavaBean框架内默认的PropertyEditor搜寻逻辑，Spring框架提供了一些自身实现的PropertyEditor：StringArrayPropertyEditor；ClassEditor；FileEditor；LocaleEditor；PatternEditor），对于Spring容器默认加载的PropertyEditor，我们不需要告诉容器也可以，但是对于那些自定义的或者不是默认加载的PropertyEditor，CustomEditorConfigurer就是帮助我们传达信息的一个中间人，帮助我们将某种类型的PropertyEditor告诉容器。
 
+使用情形举例：  
+>我们有一个DataFoo对象，依赖Date类型的对象
+```java
+public class DateFoo {
+    private Date date; 
+    public Date getDate(){
+        return date; 
+    } 
+    public void setDate(Date date){
+        this.date = date;
+    } 
+}
+```
+>XML描述关系如下  
+```xml
+<bean id="dateFoo" class="...DateFoo">
+ <property name="date"> 
+    <value>2007/10/16</value> 
+ </property> 
+</bean> 
+```
+>问题：Spring容器是没有默认的对应的PropertyEditor将字符串“2007/10/16”转换成对象所声明的java.util.Date类型，需要自定义一个PropertyEditor的实现类，然后用CustomEditorConfigurer告诉容器。  
+```java
+//1.实现接口PropertyEditor，完成自定义
+//2.继承实现类PropertyEditorSupport，完成自定义（可以避免需要实现多个方法，只要关注重点方法即可）
+public class DatePropertyEditor  extends PropertyEditorSupport { 
+    private String datePattern; 
+    //从string类型到相应对象类型的转换
+    @Override 
+    public void setAsText(String text) throws IllegalArgumentException { 
+        DateTimeFormatter dateTimeFormatter = DateTimeFormat.forPattern(getDatePattern()); 
+        Date dateValue = dateTi
+        setValue(dateValue); 
+    } 
+    //getAsText()，反向转换
+    public String getDatePattern(){
+        return datePattern; 
+    }
+    public void setDatePattern(String datePattern）{
+        this.datePattern = datePattern;
+    }
+}
 
-
+```
+>告诉容器我们自定义的PropertyEditor实现
+```java
+//BeanFactory方式
+XmlBeanFactory beanFactory = new XmlBeanFactory(new ClassPathResource("..."));
+//new 一个中间人
+CustomEditorConfigurer ceConfigurer = new CustomEditorConfigurer(); 
+//组装并告诉中间人要传递的信息
+Map customerEditors = new HashMap();
+customerEditors.put(java.util.Date.class, new DatePropertyEditor());
+ceConfigurer.setCustomEditors(customerEditors);
+//中间人把要传递的信息告诉工厂
+ceConfigurer.postProcessBeanFactory(beanFactory);
+```
+```xml
+<!-- pplicationContext，配置文件配置一下就可以。会自动识别BeanFactoryPostProcessor -->
+<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+    <property name="customEditors"> 
+        <map> 
+            <entry key="java.util.Date"> 
+                <ref bean="datePropertyEditor"/> 
+            </entry>
+        </map>
+    </property>
+</bean>
+<bean id="datePropertyEditor" class="...DatePropertyEditor"> 
+    <property name="datePattern"> 
+        <value>yyyy/MM/dd</value> 
+    </property> 
+</bean> 
+```  
+>Spring 2.0之后有变化，建议实现PropertyEditorRegistrar，通过propertyEditorRegistrars属性来指定自定义PropertyEditor，2.0之前是使用customEditors属性  
+```java
+public class DatePropertyEditorRegistrar implements PropertyEditorRegistrar { 
+    private PropertyEditor propertyEditor;
+    public void registerCustomEditors(PropertyEditorRegistry peRegistry) { 
+        peRegistry.registerCustomEditor(java.util.Date.class, getPropertyEditor()); 
+    }
+    public PropertyEditor getPropertyEditor(){
+        return propertyEditor;
+    }
+    public void setPropertyEditor(PropertyEditor propertyEditor){
+        this.propertyEditor = propertyEditor;
+    }
+}
+```
+>对应的xml描述修改为
+```xml
+<!-- 通过CustomEditorConfigure的propertyEditorRegistrars属性告诉容器自定义的DatePropertyEditor -->
+<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+    <property name="propertyEditorRegistrars"> 
+        <list> 
+            <ref bean="datePropertyEditorRegistrar"/>
+        </list>
+    </property>
+</bean>
+<!-- 将DatePropertyEditor注入DatePropertyEditorRegistrar -->
+<bean id="datePropertyEditorRegistrar" class="...DatePropertyEditorRegistrar"> 
+    <property name="propertyEditor"> 
+        <ref bean="datePropertyEditor"/>
+    </property>
+</bean> 
+<!-- 自定义的DatePropertyEditor -->
+<bean id="datePropertyEditor" class="...DatePropertyEditor"> 
+    <property name="datePattern"> 
+        <value>yyyy/MM/dd</value> 
+    </property> 
+</bean> 
+```
 
 ## 第二阶段 Bean实例化阶段
 
