@@ -372,6 +372,39 @@ public class DatePropertyEditorRegistrar implements PropertyEditorRegistrar {
 ```
 
 ## 第二阶段 Bean实例化阶段
+第一阶段为我们准备好了bean对应的BeanDefinition，保存了实例化需要用到的必要的信息，只有当我们调用方法getBean()的时候，才可能会真正的实例化。（第一次，第二次的时候就是返回容器缓存，prototype的bean除外）
+1. 显式调用  
+
+2. 隐式调用  
+### BeanFactory懒加载
+对象实例化默认采用延迟初始化，当对象A被请求而需要第一次实例化的时候，如果它所依赖的对象B之前同样没有被实例化，那么容器会先实例化对象A所依赖的对象。这时容器内部就会首先实例化对象B，以及对象 A依赖的其他还没有实例化的对象。
+
+### ApplicationContext调用
+但ApplicationContext在实现的过程中依然遵循Spring容器实现流程的两个阶段，只不过它会在启动阶段的活动完成之后，紧接着调用注册到该容器的所有bean定义的实例化方法getBean()。
+
+
+这里就不得不说Bean的生命周期了  
+先上图  
+![Bean生命周期](./Image/002/Bean实例化过程.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
