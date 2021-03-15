@@ -385,7 +385,98 @@ public class DatePropertyEditorRegistrar implements PropertyEditorRegistrar {
 
 这里就不得不说Bean的生命周期了  
 先上图  
-![Bean生命周期](./Image/002/Bean实例化过程.png)
+![Bean生命周期](./Image/002/Bean实例化过程.png)  
+
+1. 实例化与BeanWrapper  
+
+2. 通过Wrapper设置Bean的属性  
+
+3. 检查各色的Aware接口（主要是注入容器自身的引用等操作）  
+
+4. BeanPostProcessor（一个接口，两个方法）  
+用来处理容器中所有符合条件的实例化对象实例，postProcessBeforeInitialization和postProcessAfterInitialization在不同时机执行  
+>常用的场景就是处理标记接口实现类，或者为当前对象提供代理实现  
+
+为了显示其强大之处，自定义实现一下试试  
+```java
+//接口标记需要被处理的实现类
+public interface PasswordDecodable { 
+    String getEncodedPassword(); 
+    void setDecodedPassword(String password); 
+} 
+public class DowJonesNewsListener implements IFXNewsListener,PasswordDecodable { 
+    private String password; 
+
+    public String[] getAvailableNewsIds() { 
+    // 省略
+    } 
+    public FXNewsBean getNewsByPK(String newsId) { 
+    // 省略
+    } 
+    public void postProcessIfNecessary(String newsId) { 
+    // 省略
+    } 
+    public String getEncodedPassword() { 
+        return this.password; 
+    } 
+    public void setDecodedPassword(String password) { 
+        this.password = password; 
+    } 
+} 
+
+//实现相应的BeanPostProcessor对符合条件的Bean实例进行处理
+public class PasswordDecodePostProcessor implements BeanPostProcessor { 
+    //在BeanPostProcessor结束的时候干点什么
+    public Object postProcessAfterInitialization(Object object, String beanName) 
+    throws BeansException { 
+        return object; 
+    } 
+    //在BeanPostProcessor开始的时候干点什么
+    public Object postProcessBeforeInitialization(Object object, String beanName) 
+    throws BeansException { 
+        if(object instanceof PasswordDecodable) 
+        { 
+            String encodedPassword = ((PasswordDecodable)object).getEncodedPassword(); 
+            String decodedPassword = decodePassword(encodedPassword); 
+            ((PasswordDecodable)object).setDecodedPassword(decodedPassword); 
+        } 
+        return object; 
+    } 
+    private String decodePassword(String encodedPassword) { 
+        // 实现解码逻辑
+        return encodedPassword; 
+    } 
+}
+```
+```java
+//准备就绪，接下来就是注册BeanPostProcessor到容器，发挥效果
+// 对于BeanFactory
+ConfigurableBeanFactory beanFactory = new XmlBeanFactory(new ClassPathResource(...)); 
+beanFactory.addBeanPostProcessor(new PasswordDecodePostProcessor()); 
+```
+对于ApplicationContext  
+直接将相应的BeanPostProcessor实现类通过通常的XML配置文件配置一下即可
+```xml
+<bean id="passwordDecodePostProcessor" class="package.name.PasswordDecodePostProcessor"> 
+ <!--如果需要，注入必要的依赖--> 
+ </bean>
+```
+
+5. postProcessBeforeInitialization和postProcessAfterInitialization之间的InitializingBean和init-method  
+二者效果基本一致，但是init-method侵入性没有那么强
+
+6. 使用
+
+
+7. DisposableBean与destroy-method  
+只有该对象实例不再被使用的时候，才会执行相关的自定义销毁逻辑，此时通常也就是Spring容器关闭的时候；但Spring容器在关闭之前，不会聪明到自动调用这些回调方法，需要我们告知容器，在哪个时间点来执行对象的自定义销毁方法。  
+
+***DisposableBean与destroy-method只针对些singtleton类型的bean对象，prototype类型的bean实例在容器实例化对象并返回给请求方之后，就不再管理其生命周期***
+
+>对于BeanFactory：调用ConfigurableBeanFactory提供的destroySingletons()方法销毁容器中管理的所有singleton类型的对象实例。(如果不能在合适的时机调用destroySingletons()，DisposableBean接口/声明了destroy-method的bean定义对应的对象实例,它们的自定义对象销毁逻辑就形同虚设)  
+>对于于ApplicationContext：registerShutdownHook()方法，该方法底层使用标准的Runtime类的addShutdownHook()方式来调用相应bean对象的销毁逻辑，从而保证在Java虚拟机退出之前，这些singtleton类型的bean对象实例的自定义销毁逻辑会被执行。
+
+
 
 
 
