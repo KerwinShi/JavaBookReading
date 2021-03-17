@@ -155,9 +155,72 @@ menu.edit=Edit
 这样，通过ResourceBundle的getBundle(String baseName, Locale locale)方法取得不同Locale对应的ResourceBundle，然后根据资源的键取得相应Locale的资源条目内容。
 
 ###　ApplicationContext与MessageSource  
-Spring进一步抽象了国际化信息的访问接口，得到了MessageSource接口
+Spring进一步抽象了国际化信息的访问接口，得到了MessageSource接口，于是ApplicationContext可以当做MessageSource使用（在默认情况下，ApplicationContext将委派容器中一个名称为messageSource，找不到实现，就默认实例化一个不含任何内容的StaticMessageSource实例）
+```java
+public interface MessageSource {
+    String getMessage(String code, @Nullable Object[] args, @Nullable String defaultMessage, Locale locale);//根据传入的资源条目的键code,参数和Locale查找信息，没找到就返回传入的默认值
+    String getMessage(String code, @Nullable Object[] args, Locale locale) throws NoSuchMessageException;//相比上面的，没有默认值，抛出异常
+    String getMessage(MessageSourceResolvable resolvable, Locale locale) throws NoSuchMessageException;//MessageSourceResolvable对资源条目的键，参数进行封装，没有找到就抛出异常
+```
+![MessageSource的实现类](./Image/002/MessageSource的实现类.png)   
+
+1. StaticMessageSource   
+简单实现，用于测试，不能用于生产
+
+2. ResourceBundleMessageSource  
+基于标准的ResourceBundle实现，最常用的、用于正式生产环境下的MessageSource实现。
 
 
+3. ReloadableResourceBundleMessageSource  
+cacheSeconds属性可以指定时间段，以定期刷新并检查底层的properties资源文件是否有变更，可以通过
+ResourceLoader来加载信息资源文件（避免将信息资源文件放到classpath中）。  
+
+以上三个实现类是可以独立于ApplicationContext运行的；
+ApplicationContext启动的时候，自动识别容器中类型为MessageSourceAwaree的bean，并将自身作为MessageSource注入相应对象实例（实际上，可以通过将ApplicationContext中的messageSource注入到相应对象实例，和普通依赖注入就没有区别了）。
+
+##　三、容器事件发布  
+
+### 自定义事件发布  
+EventObject和EventListener实现自定义事件发布  
+```java
+//1.自定义事件类型
+//针对方法执行事件的自定义事件类型定义，在合适的事件发布事件
+public class MethodExecutionEvent extends EventObject { 
+    private static final long serialVersionUID = -71960369269303337L; 
+    private String methodName; 
+
+    public MethodExecutionEvent(Object source) { 
+        super(source); 
+    } 
+    public MethodExecutionEvent(Object source,String methodName) 
+    { 
+        super(source); 
+        this.methodName = methodName; 
+    } 
+    public String getMethodName() { 
+        return methodName; 
+    } 
+    public void setMethodName(String methodName) { 
+        this.methodName = methodName; 
+    } 
+} 
+//2.现针对自定义事件类的事件监听器接口，监听事件（我们的自定义事件监听器类只负责监听其对应的自定义事件并进行处理）
+public interface MethodExecutionEventListener extends EventListener { 
+    /** 
+    * 处理方法开始执行的时候发布的MethodExecutionEvent事件
+    */ 
+    void onMethodBegin(MethodExecutionEvent evt); 
+    /** 
+    * 处理方法执行将结束时候发布的MethodExecutionEvent事件
+    */ 
+    void onMethodEnd(MethodExecutionEvent evt); 
+}
+//这里省略事件监听接口实现类，接口实际不干事的
+
+//3.组合事件类和监听器，发布事件。
+//事件发布者（EventPublisher），它本身作为事件源，会在合适的时点，将相应事件发布给对应的事件监听器
+
+```
 
 
 
