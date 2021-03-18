@@ -181,7 +181,8 @@ ApplicationContext启动的时候，自动识别容器中类型为MessageSourceA
 ##　三、容器事件发布  
 
 ### 自定义事件发布  
-EventObject和EventListener实现自定义事件发布  
+EventObject和EventListener实现自定义事件发布    
+![自定义事件发布组成](./Image/002/自定义事件发布组成.png)   
 ```java
 //1.自定义事件类型
 //针对方法执行事件的自定义事件类型定义，在合适的事件发布事件
@@ -219,8 +220,145 @@ public interface MethodExecutionEventListener extends EventListener {
 
 //3.组合事件类和监听器，发布事件。
 //事件发布者（EventPublisher），它本身作为事件源，会在合适的时点，将相应事件发布给对应的事件监听器
+public class MethodExeuctionEventPublisher {
+    private List<MethodExecutionEventListener> listeners = new ArrayList<MethodExecutionEventListener>();
+    public void methodToMonitor(){
+        MethodExecutionEvent event2Publish = new MethodExecutionEvent(this,"methodToMonitor");
+        //具体时点上自定义事件的发布，方法开始
+        publishEvent(MethodExecutionStatus.BEGIN,event2Publish);
+        // 执行实际的方法逻辑
+        // ...
+        //具体时点上自定义事件的发布，方法即将结束
+        publishEvent(MethodExecutionStatus.END,event2Publish);
+    }
 
+    protected void publishEvent(MethodExecutionStatus status, MethodExecutionEvent methodExecutionEvent) {
+        List<MethodExecutionEventListener> copyListeners = new ArrayList<MethodExecutionEventListener>(listeners);
+        for(MethodExecutionEventListener listener:copyListeners)
+        {
+            if(MethodExecutionStatus.BEGIN.equals(status))
+                listener.onMethodBegin(methodExecutionEvent);
+            else
+                listener.onMethodEnd(methodExecutionEvent);
+        }
+    }
+
+    //客户端可以根据情况决定是否需要注册或者移除某个事件监听器,避免一直被引用
+    public void addMethodExecutionEventListener(MethodExecutionEventListener listener)
+    {
+        this.listeners.add(listener);
+    }
+    public void removeListener(MethodExecutionEventListener listener)
+    {
+        if(this.listeners.contains(listener))
+            this.listeners.remove(listener);
+    }
+    public void removeAllListeners()
+    {
+        this.listeners.clear();
+    }
+
+    //psvm......
+}
 ```
+
+### ApplicationContext与事件   
+对应上面的自定义事件发布过程，  ApplicationEvent为自定义事件类型，实现类有：默认有ContextClosedEvent（容器关闭）、ContextRefreshedEvent（容器初始化或者刷新）和RequestHandledEvent（Web请求处理后）三个实现；ApplicationListener为自定义事件监听器接口；ApplicationContext继承了ApplicationEventPublisher接口，扮演事件发布者的角色，提供了void publishEvent(ApplicationEvent event)方法定义。  
+
+>ApplicationContext的事件的发布和事件监听器的注册没有自己做，而是交给了ApplicationEventMulticaster接口。容器启动的时候检查容器内是否存在名称为applicationEventMulticaster的实例对象，有就使用，否则实例化一个默认的SimpleApplicationEventMulticaster。
+![ApplicationContext的事件发布](./Image/002/ApplicationContext的事件发布.png)  
+
+```java
+//ApplicationContext版本的事件发布
+//自定义事件类型
+public class MethodExecutionEvent extends ApplicationEvent {
+    private static final long serialVersionUID = -71960369269303337L;
+    private String methodName;
+    private MethodExecutionStatus methodExecutionStatus;
+    public MethodExecutionEvent(Object source) {
+        super(source);
+    }
+    public MethodExecutionEvent(Object source,String methodName,MethodExecutionStatus methodExecutionStatus)
+    {
+        super(source);
+        this.methodName = methodName;
+        this.methodExecutionStatus = methodExecutionStatus;
+    }
+//get set方法
+}
+
+//事件监听器
+public class MethodExecutionEventListener implements ApplicationListener {
+    public void onApplicationEvent(ApplicationEvent evt) {
+        if(evt instanceof MethodExecutionEvent)
+        {
+            // 执行处理逻辑
+        }
+    }
+}
+
+//发布事件
+public class MethodExeuctionEventPublisher implements ApplicationEventPublisherAware {
+    private ApplicationEventPublisher eventPublisher;//ApplicationEventPublisherAware会自动注入一个eventPublisher，即本身
+    public void methodToMonitor()
+    {
+        MethodExecutionEvent beginEvt = new MethodExecutionEvent(this,"methodToMonitor",MethodExecutionStatus.BEGIN);
+        this.eventPublisher.publishEvent(beginEvt);//具体的发布逻辑不用自己再写了，交给注入的eventPublisher吧
+        // 执行实际方法逻辑
+        // ...
+        MethodExecutionEvent endEvt = new  MethodExecutionEvent(this,"methodToMonitor",MethodExecutionStatus.END);
+        this.eventPublisher.publishEvent(endEvt);
+    }
+    public void setApplicationEventPublisher(ApplicationEventPublisher appCtx) {
+        this.eventPublisher = appCtx;
+    }
+}
+```
+
+##　四、多配置模块加载（更方便的加载多个配置文件）  
+让容器同时读入划分到不同配置文件的信息，ApplicationContext更方便  
+```java
+String[] locations = new String[]{ "conf/dao-tier.springxml","conf/view-tier.springxml", "conf/business-tier.springxml"};
+ApplicationContext container = new FileSystemXmlApplicationContext(locations);
+// 或者
+ApplicationContext container = new ClassPathXmlApplicationContext(locations);
+//...
+//甚至于使用通配符
+ApplicationContext container = new FileSystemXmlApplicationContext("conf/**/*.springxml");
+
+
+//ClassPathXmlApplicationContext可以通过某一个类在Classpath中的位置定位配置文件，而不用指定每个配置文件的完整路径名
+//com/
+//  foo/
+//      services.xml
+//      daos.xml
+//      MessengerService.class
+ApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] {"services.xml", "daos.xml"}, MessengerService.class);
+```  
+BeanFactory需要分多次加载，或者通过主配置文件`<import>`其他配置文件
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
