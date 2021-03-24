@@ -46,9 +46,68 @@ public interface MethodMatcher {
 >不需要关注参数的时候，isRuntime()返回false，那就是StaticMethodMatcher，这时matches方法1会被执行，执行结果将会成为其所属的Pointcut主要依据  
 >需要对方法参数进行匹配检查的时候，isRuntime()返回true，那就是DynamicMethodMatcher，由于每次都要检查参数，而且不能缓存匹配结果，匹配效率相对较差（一般不轻易使用），只有***当matches方法1返回true，并且isRuntime()返回true***的时候，matches方法2才会被执行
 
+Pointcut继承体系如下：  
+![Pointcut继承体系](./Image/003/Pointcut继承体系.png)  
+其中，常见的有以下几种Pointcut实现  
+- NameMatchMethodPointcut
+最简单的实现，属于StaticMethodMatcherPointcut的子类，可以使用一组方法名称与Jointpoint处的方法名称进行匹配  
+```java
+NameMatchMethodPointcut nameMatchMethodPointcut = new NameMatchMethodPointcut();
+nameMatchMethodPointcut.setMappedName("hello");//传入方法名称
+nameMatchMethodPointcut.setMappedName(new String[]{"hello","world"});//传入多个方法名称
+nameMatchMethodPointcut.setMappedName(new String[]{"hello*","*world"});//*表示通配符，如果还要更多，可以使用正则表达式
+```
+由于不关心参数，对于重载的方法就无能为力了  
 
+- JdkRegexpMethodPointcut
+（JDK1.4）专门的基于正则表达式的实现分支，可以指定一个或者多个正则表达式(1.4之前或者perl5风格的使用Perl5RegexpMethodPointcut)
+```java
+JdkRegexpMethodPointcut jdkRegexpMethodPointcut = new JdkRegexpMethodPointcut();
+jdkRegexpMethodPointcut.setPattern("*.*match.*");//一个
+jdkRegexpMethodPointcut.setPatterns(new String[]{"hello*","*world"});//多个
+```
+***正则表达式使用的时候需要匹配完整的包路径***，不能像NameMatchMethodPointcut那样只写方法名称就可以，比如包`package cn.kerwinshi.test`中有一个类`Demo`，其中一个方法为`hello()`，为了拦截他，正则表达式为`*.hello`才可以（相当于`package cn.kerwinshi.test.Demo.hello`），如果只写`hello.*`是不行的。  
 
+正则表达式TODO
 
+- AnnotationMatchingPointcut
+（JDK1.5）根据目标对象中是否存在指定类型的注解来匹配Jointpoint  
+```java  
+//声明注解
+@Retention(RetentionPolicy.RUNTIME)//注解作用时期
+@Target(ElementType.TYPE)//注解作用目标类型
+public @interface ClassLevelAnnotation{}//作用与类上的注解
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface MethodLevelAnnotation{}//作用与方法上的注解
+
+//使用注解标记
+@ClassLevelAnnotation
+public class TargetDemoObject{
+    @MethodLevelAnnotation
+    public void hello(){
+
+    }
+
+    public void world(){
+
+    }
+}
+
+//定义Pointcut寻找符合预期的Jointpoint
+AnnotationMatchingPointcut annotationMatchingPointcut = new AnnotationMatchingPointcut(ClassLevelAnnotation.class);//指定匹配类级别的注解，所有方法都会被拦截
+AnnotationMatchingPointcut annotationMatchingPointcut = AnnotationMatchingPointcut.forClassAnnotation(ClassLevelAnnotation.class);//通过静态方法forClassAnnotation指定，等价的  
+
+AnnotationMatchingPointcut annotationMatchingPointcut = AnnotationMatchingPointcut.forMethodAnnotation(MethodLevelAnnotation.class);//指定方法级别的注解，拦截指定注解注解的方法
+
+AnnotationMatchingPointcut annotationMatchingPointcut = new AnnotationMatchingPointcut(ClassLevelAnnotation.class，MethodLevelAnnotation.class);//同时指定匹配类级别的注解和方法级别的注解，进一步缩小范围为指定标记类的指定标记方法
+```  
+
+注解TODO
+
+- ComposablePointcut  
+可以进行逻辑运算的Pointcut
 
 
 
