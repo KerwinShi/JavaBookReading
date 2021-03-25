@@ -6,6 +6,7 @@ Spring AOP仅支持方法级别（更确切的就是方法执行）的Jointpoint
 >应用需求超出Spring AOP的支持，可以求助于其他AOP实现产品，AspectJ等。
 
 ### PointCut
+#### PointCut概览 
 最顶层的抽象Pointcut  
 ![Pointcut](./Image/003/Pointcut.png)
 ```java
@@ -48,7 +49,8 @@ public interface MethodMatcher {
 
 Pointcut继承体系如下：  
 ![Pointcut继承体系](./Image/003/Pointcut继承体系.png)  
-其中，常见的有以下几种Pointcut实现  
+ 
+#### 常见PointCut简介
 - NameMatchMethodPointcut
 最简单的实现，属于StaticMethodMatcherPointcut的子类，可以使用一组方法名称与Jointpoint处的方法名称进行匹配  
 ```java
@@ -107,17 +109,50 @@ AnnotationMatchingPointcut annotationMatchingPointcut = new AnnotationMatchingPo
 注解TODO
 
 - ComposablePointcut  
-可以进行逻辑运算的Pointcut
+可以进行逻辑运算（交集、并集）的Pointcut  
+```java
+ComposablePointcut composablePointcu1 = new ComposablePointcut(calssFilter1, methodFilter1);
+ComposablePointcut composablePointcut2 = new ComposablePointcut(calssFilter2, methodFilter2);
+ComposablePointcut united = composablePointcu1.union(composablePointcut2);//求并集
+ComposablePointcut intersection = composablePointcu1.intersection(composablePointcut2);//求交集
+//以上可以看出Pointcut分成ClassFilter和MethodMatcher两部分的必要性之一，可以进行组合
+//more  
+ComposablePointcut composablePointcut3 = composablePointcut2.union(calssFilter1).intersection(methodFilter1);
+```
+工具类Pointcuts为我们提供了常用的Pointcut与Pointcut之间的逻辑运算
+```java
+Pointcut p1 = ...
+Pointcut p1 = ...
+Pointcut p3 = Pointcuts.union(p1,p2);
+Pointcut p3 = Pointcuts.intersection(p1,p2);
+```
+
+- ControlFlowPointcut
+匹配程序的调用流程，不是对某个方法执行所在的Jointpoint处的单一特征进行匹配。简单的说，被标记的方法只有被某些类型的对象的方法调用的时候才会织入横切逻辑，被其他类型的对象的方法调用的时候不会织入。   
+![ControlFlowPointcut](./Image/003/ControlFlowPointcut.png)  
+需要在指定的Class类的指定方法调用目标方法才进行拦截的话，就在ControlFlowPointcut的构造函数中同时指定class和方法名称。  
+
+#### PointCut扩展（自定义）  
+- StaticMethodMatcher  
+    - 默认忽略类的类型匹配（所有类都会被拦截），如果需要指定`setClassFilter`可以帮忙；
+    - isRuntime返回false，三个参数的matches方法会抛出UnsupportOperationException;
+    - 需要实现两个参数的matches方法；
+
+- DynamicMethodMatcher
+    - `getClassFilter`返回ClassFilter.TRUE,需要的话子类覆写该方法即可；
+    - isRuntime返回true，两个参数的matches方法默认返回true
+    - *通常*实现三个参数的matches方法即可，也可以实现两个参数的matches方法，正常使用；
+
+### Advice  
+![advice](./Image/003/Advice.png) 
 
 
+### Aspect   
 
 
+有了以上的了解，我们就对Spring AOP的基本概念都有了了解，接下来就是要学习如何使用这些概念实现我们的需求了。
 
-
-
-
-
-
+### 织入
 
 
 
