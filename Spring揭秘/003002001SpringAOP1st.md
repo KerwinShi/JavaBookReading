@@ -145,9 +145,74 @@ Pointcut p3 = Pointcuts.intersection(p1,p2);
 
 ### Advice  
 ![advice](./Image/003/Advice.png) 
+Spring AOP加入了开源组织AOP Alliance，为了标准化AOP的使用，全部遵循了其规定的接口。    
+按照自身实例能否在目标对象的类的实例中共享这一标准，划分为：
+- per-class类型的Advice  
+可以共享，只是拦截目标对象的方法，不会为目标对象添加属性和状态。   
+    - Before Advice
+    实现的横切逻辑在Jointpiont之前执行。使用的时候实现接口`MehtodBeforeAdvice`（继承标志接口`BeforeAdvice`，`BeforeAdvice`没有任何方法需要实现）。  
+    使用场景：需要在指定的文件路径放置文件，就需要首先检查这些位置是否存在，不存在则创建，这时候我们可以做一些统一处理，避免这些工作散落在各个类中。  
+    - ThrowsAdvice  
+    接口`ThrowsAdvice`，没有定义任何方法，但是一般需要遵守规则`void afterThrowing（[Method ,args,target],ThrowableSubClass）`,\[\]中的参数可以省略。  
+    使用场景：当系统发生异常的时候通过监控异常，通知监控人员或者运营人员。  
+    - AfterReturningAdvice  
+    接口`AfterReturningAdvice`(继承接口AfterAdvice)可以访问方法的返回值、方法、方法的参数以及所在的目标对象，前提是目标方法正常返回。注意：不能对返回值进行修改。  
+    - Around Advice  
+    由于没有提供finally的advice，Spring AOP使用Around Advice弥补了AfterReturningAdvice无法修改返回结果的遗憾。MehtodInterceptor作为Around Advice使用，没有AroundAdvcie这个接口。
+    使用场景：监控方法执行性能。
 
+- per-instance类型的Advice
+不会在目标类的所有对象实例之间共享，为不同的对象保存各自的状态以及相关的逻辑。（打工人，大家都是打工人，但是每个人都是不一样的，有不一样的个人信息，不一样的工作资料）在Spring AOP中，Introduction就是唯一的一种per-instance类型的Advice。
+    - Introduction
+    在不改变目标类定义的前提下，为目标类添加新的属性和行为。（原来是研发，临时被拉去作为测试，完成测试工作，你还是你，但是需要完成的工作多了点，身份被加了点信息）首先，为目标对象添加属性和行为需要声明相应的接口和提供相应的实现，然后通过特殊的拦截器将对应的接口和实现逻辑附加到目标对象上（就是`IntroductionInterceptor`）  
+![IntroductionInterceptor](./Image/003/IntroductionInterceptor.png) 
+
+
+```java
+//methodinterceptor的使用实例
+public class DiscountMethodInterceptor implements MethodInterceptor{
+    private static final Integer DEFAULT_DISCOUNT_RATIO = 80;
+    private static final Integer DEFAULT_DISCOUNT_RATIO = new IntRange(5,95);
+    private Interger discountRatio = DEFAULT_DISCOUNT_RATIO;
+    private boolean campaginAvailable;
+    public Object invoke(MehtodInvocation invocation) throws Throwable{
+        Object returnValue = invocation.proceed();//调用原有的方法逻辑，取得返回值，一定要调用proceed方法，不然目标对象的运算逻辑就被短路了
+        // if(...){
+        //     return ...;//返回值处理，根据条件修改返回值
+        // }
+    }
+}
+
+//DelegatingIntroductionInterceptor
+//不会实现将要添加到目标对象上的新的逻辑行为，而是委派给其他实现类
+public interface Ideveloper{
+//目标对象接口
+}
+public class Developer{
+//目标对象接口实现类
+}
+public interface Itester{
+//将要添加到目标对象上的行为与属性的接口
+}
+public class Tester{
+//将要添加到目标对象上的行为与属性的接口实现类
+}
+
+//织入
+Itester delegate = new Tester();
+DelegatingIntroductionInterceptor delegatingIntroductionInterceptor = new DelegatingIntroductionInterceptor(delegate);//DelegatingIntroductionInterceptor会使用持有的这个delegate为同一目标类（Ideveloper）的所有实例对象使用
+Itester fakeTester = (Itester)weaver.weave(developer).with(delegatingIntroductionInterceptor).getProxy();
+fakeTester.test();
+
+//改进版，为每个目标对象都单独提供  DelegatePerTargetObjectIntroductionInterceptor
+//DelegatePerTargetObjectIntroductionInterceptor内部持有一个目标对象与相应的Introduction逻辑实现类之间的映射关系
+//使用与DelegatingIntroductionInterceptor基本一致，构造函数有所改变，不需要自己构造delegate了，只需要告诉类型就可以了
+DelegatePerTargetObjectIntroductionInterceptor delegatePerTargetObjectIntroductionInterceptor = new DelegatePerTargetObjectIntroductionInterceptor(接口实现类，接口);
+```
 
 ### Aspect   
+Spring中最初并没有Aspect的概念，Advisor就是Spring中的Aspect，但是它只有一个Pointcut和一个Advice，是一种特殊的Aspect。
+
 
 
 有了以上的了解，我们就对Spring AOP的基本概念都有了了解，接下来就是要学习如何使用这些概念实现我们的需求了。
