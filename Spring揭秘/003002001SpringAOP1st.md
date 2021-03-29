@@ -211,14 +211,60 @@ DelegatePerTargetObjectIntroductionInterceptor delegatePerTargetObjectIntroducti
 ```
 
 ### Aspect   
-Spring中最初并没有Aspect的概念，Advisor就是Spring中的Aspect，但是它只有一个Pointcut和一个Advice，是一种特殊的Aspect。
+Spring中最初并没有Aspect的概念，Advisor就是Spring中的Aspect，但是它只有一个Pointcut和一个Advice，是一种特殊的Aspect。  
+![Advisor](./Image/003/Advisor.png)
+- PointcutAdvisor  
+    - DefaultPointcutAdvisor最常用的实现类，除了不能指定Introduction类型的Advice，其他类型Pointcut，Advice都可以通过他使用。
+```java
+Pointcut pointcut = 
+Advice advice = 
+DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor(pointcut,advice);
+DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor(advice);
+advisor.setPointcut(pointcut);
+DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor();
+advisor.setAdvice(advice);
+```
+    - NameMatchMethodPointcutAdvisor
+    细化后的DefaultPointcutAdvisor，限定Pointcut为NameMatchMethodPointcut，且外部不能更改，除了除了不能指定Introduction类型的Advice，其他类型Advice都可以通过他使用。
+```java
+Advice advice = 
+NameMatchMethodPointcutAdvisor advisor = new NameMatchMethodPointcutAdvisor(advice);
+advisor.setMappedName("methodName2Intercept");
+advisor.setMappedName(new String[] {"methodName2Intercept"});
+```
+    - RegexpMethodPointcutAdvisor
+    限定只能通过正则表达式为其设置相应的Pointcut，RegexpMethodPointcutAdvisor内部有一个AbstractRegexpMethodPointcut实例，默认使用JdkRegexpMethodPointcut，但是可以强制使用Perl5RegexpMethodPointcut（setPel5(boolean)）。
+
+    - DefaultBeanFactoryPointcutAdvisor
+    自身绑定了BeanFactory，与Spring Ioc强绑定，区别在于：可以通过容器中注册的beanName来关联Advice，当Pointcut匹配后，才会实例化Advice，减少容器启动的时候Advice与Advisor的耦合。
+- IntroductionAdvisor  
+只能拦截类级别的，并且只能使用Introduction类型的Advice。
+    - DefaultIntroductionAdvisor
+    最常用的实现类就DefaultIntroductionAdvisor
+
+Ordered的作用就是为了在有多个横切点需要关注的时候，存在多个Advisor，又恰好有几个Pointcut同时匹配了同一个Jointpoint，为了避免由于顺序不同导致不同的结果，这时候就需要有个先后排序了（order从0开始指定，小于0的Spring自己内部使用了，越小，优先级越高）  
+![Ordered](./Image/003/Ordered.png)
 
 
-
-有了以上的了解，我们就对Spring AOP的基本概念都有了了解，接下来就是要学习如何使用这些概念实现我们的需求了。
+有了以上的了解，我们就对Spring AOP的基本概念都有了了解，接下来就是要学习如何使用这些概念实现我们的需求了。(积木都有了，该搭建作品了)
 
 ### 织入
-
+Spring AOP通常使用`PorxyFactory`作为织入器。  
+由实现原理可知，Spring AOP是基于代理实现的，织入横切逻辑后，会返回一个代理对象，为`PorxyFactory`提供原料，就可以得到加工完的代理对象。  
+```java
+//指定目标对象
+ProxyFactory weaver = new ProxyFactory(targetObj);
+//or
+ProxyFactory weaver = new ProxyFactory();
+weaver.setTarget(targetObj);
+//将目标对象引用到Aspect
+Advisor advisor =  
+weaver.addAdvisor(advisor);
+Object proxyObj = weaver.getProxy();
+//也可以直接指定Advice
+//对于Introduction类型的，如果是IntroductionInfo的子类，框架内部构造DefaultIntroductionAdvisor；如果是DynamicIntroductionAdvice，抛出异常（信息不够，无目标对象信息）
+//对于其他类型的Advice，内部构造相应的Advisor，并且被应用所有可以识别的Jointpoint上
+```
 
 
 
