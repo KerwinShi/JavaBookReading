@@ -264,9 +264,74 @@ Object proxyObj = weaver.getProxy();
 //也可以直接指定Advice
 //对于Introduction类型的，如果是IntroductionInfo的子类，框架内部构造DefaultIntroductionAdvisor；如果是DynamicIntroductionAdvice，抛出异常（信息不够，无目标对象信息）
 //对于其他类型的Advice，内部构造相应的Advisor，并且被应用所有可以识别的Jointpoint上
+weaver.addAdvice();
+```
+使用示例  
+```java
+//接口与实现类（目标）
+public interface Itask{
+    public void execute(){}
+}
+public class MockTask implements Itask{
+    public void execute(){}
+}
+
+//横切逻辑（advice）
+public class PerformanceMehtodInterceptor implements MehtodInterceptor{
+    public Object invoke(MethodInvocation invocation){
+        //...do sth
+        return invocation.proceed();
+    }
+}
+
+//基于接口代理  
+MockTask task = new MockTask();//代理对象
+ProxyFactory weaver = new ProxyFactory(task);//织入器
+weaver.setInterfaces(new Class[]{Itask.class});//基于接口代理，什么接口呢（这里也可以不需要，ProxyFactory只要检测到实现了某个接口就可以）
+NameMatchMethodPointcutAdvisor advisor = new NameMatchMethodPointcutAdvisor();//创建advisor
+advisor.addMappedName("execute");//配置advisor，什么时候执行（pointcut）
+advisor.setAdvice(new PerformanceMehtodInterceptor());//配置advisor，执行什么（advice）
+weaver.addAdvisor(advisor);//织入advisor
+Itask proxyObject = (Itask)weaver.getProxy();//创建代理对象
+proxyObject.execute();//使用代理对象
+//动态代理的时候返回的代理对象可以强制转换为接口类型，但是不能转换为接口实现类（涉及动态代理原理）
+
+//基于类代理CGLIB
+//被代理的类，没有实现接口
+public class Executable{
+    public void execute(){}
+}
+
+ProxyFactory weaver = new ProxyFactory(new Executable());//织入器
+NameMatchMethodPointcutAdvisor advisor = new NameMatchMethodPointcutAdvisor();//创建advisor
+advisor.addMappedName("execute");//配置advisor，什么时候执行（pointcut）
+advisor.setAdvice(new PerformanceMehtodInterceptor());//配置advisor，执行什么（advice）
+weaver.addAdvisor(advisor);//织入advisor
+Itask proxyObject = (Executable)weaver.getProxy();//创建代理对象
+proxyObject.execute();//使用代理对象
+
+//对于实现了接口的类，也是可以基于类实现代理的
+ProxyFactory weaver = new ProxyFactory(new MockTask());//织入器
+weaver.setProxyTargetClass(true);//强制基于类代理，optmize设置为true也是一样的效果
+NameMatchMethodPointcutAdvisor advisor = new NameMatchMethodPointcutAdvisor();//创建advisor
+advisor.addMappedName("execute");//配置advisor，什么时候执行（pointcut）
+advisor.setAdvice(new PerformanceMehtodInterceptor());//配置advisor，执行什么（advice）
+weaver.addAdvisor(advisor);//织入advisor
+MockTask proxyObject = (MockTask)weaver.getProxy();//创建代理对象
+proxyObject.execute();//使用代理对象
+
+//introduction：可以为已经存在的对象添加新的行为，只能用于对象级别拦截，不需要指定Pointcut，只需要指定目标接口类型，同时只能通过接口定义为当前对象添加新的行为
+ProxyFactory weaver = new ProxyFactory(new Developer());//织入器
+weaver.setInterfaces(new Class[]{IDeveloper.class,ITester.class});//原来的对象可以基于接口，也可以基于类，但是新添加的必须通过接口指定
+//weaver.setProxyTargetClass(true);//基于类代理
+//weaver.setInterfaces(new Class[]{ITester.class});
+TestFeatureIntroductionInterceptor advisor = new DefaultIntroductionInterceptor();
+weaver.addAdvice(advice);//ProxyFactory会在内部构建相应的Advisor
+Object proxy = weaver.getProxy();
+((Itester)proxy).testSoftware();
+((Ideveloper)proxy).developSoftware();
+//((Developer)proxy).developSoftware();//基于类代理的时候就对于类，而不是接口了
 ```
 
-
-
-
+[PorxyFactoryPorxyFactory背后的原理](./003002003PorxyFactory背后的原理.md)
 
