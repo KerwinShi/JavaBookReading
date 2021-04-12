@@ -96,10 +96,36 @@ ProxyFactory与ProxyFactoryBean相比基本一致，但是多出几个属性
 ![introduction注入2](./Image/003/introduction注入2.png)  
 
 
+>利用ProxyFactoryBean，可以实现目标对象的横切逻辑的织入，但是这是一个一个进行的，目标对象少的时候还可以接受，目标对象多了，就行不通了。  
 
+### AutoProxy自动代理机制  
+建立在IoC容器的BeanPostProcessor概念之上（大致就是在遍历bean的时候，对某些bean干点什么，比如返回代理对象，而不是目标对象本身）。  
 
+这里，利用ProxyFactory或者ProxyFactoryBean可以生成代理对象，那么关键就落在如何判断为哪些bean创建并返回代理对象了  
 
+- 1.AutoProxyCreator  
+    - BeanNameAutoProxyCreator：通过指定一组容器内的目标对象对应的beanName，将指定的一组拦截器应用到这些目标对象上。（配置beanname的时候使用通配符，逗号分隔的数组都是小技巧）
+![BeanNameAutoProxyCreator的使用](./Image/003/BeanNameAutoProxyCreator的使用.png)         
+    - DefaultAdvisorAutoProxyCreator
+    全自动武器，只需要在ApplicationContext的配置文件中注册一下DefaultAdvisorAutoProxyCreator就可以了，其他事完全交给它去搞定就好了。（不过，只对Advisor中意，其他人不放在眼里的）  
+![DefaultAdvisorAutoProxyCreator的使用的使用](./Image/003/DefaultAdvisorAutoProxyCreator的使用.png)       
+    - 扩展AutoProxyCreator  
+    背后的原理是所有的AutoProxyCreator都是InstantiationAwareBeanPostProcessor，这个BeanPostProcessor是比较特殊的，IoC检测到他的时候会直接通过InstantiationAwareBeanPostProcessor里面的逻辑构造对象实例返回，屏蔽正常的实例化流程。通过直接继承AbstractAutoProxyCreator或者AbstractAdvisorAutoProxyCreator，提供规则匹配一类的逻辑，最终实现自定义的AutoProxyCreator。  
+![AutoProxyCreator](./Image/003/AutoProxyCreator.png)  
 
+### TargetSource
+ProxyFactory通过setTarget/ProxyFactoryBean通过setTargetName实现指定目标对象在IoC容器中的名字，此外还可以通过TargetSource实现  
+
+TargetSource的作用就是为目标对象在外面添加一个壳子，或者说是目标对象的容器。  
+![TargetSource](./Image/003/TargetSource.png)  
+![TargetSource实现类](./Image/003/TargetSource实现类.png)  
+实现类包括：  
+- SingletonTargetSource：内部持有一个目标对象实例，每次调用都是返回同一个目标对象  
+- PrototypeTargetSource：每次调用都会返回一个新的目标对象实例    
+- HotSwappableTargetSource  
+- CommonsPool2TargetSource  
+- ThreadLocalTargetSource  
+- 自定义的TargetSource
 
 
 
