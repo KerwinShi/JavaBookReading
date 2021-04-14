@@ -121,11 +121,18 @@ TargetSource的作用就是为目标对象在外面添加一个壳子，或者�
 ![TargetSource实现类](./Image/003/TargetSource实现类.png)  
 实现类包括：  
 - SingletonTargetSource：内部持有一个目标对象实例，每次调用都是返回同一个目标对象  
-- PrototypeTargetSource：每次调用都会返回一个新的目标对象实例    
-- HotSwappableTargetSource  
-- CommonsPool2TargetSource  
-- ThreadLocalTargetSource  
+- PrototypeTargetSource：每次调用都会返回一个新的目标对象实例（目标对象要是多例的，不能是ref）    
+- HotSwappableTargetSource：在程序运行的时候根据某种特定的条件动态的替换目标对象类的具体实现。    
+- CommonsPool2TargetSource：返回有限数目的目标对象实例，而不是每次都返回一个新的对象实例，类似于数据库的连接池。  
+- ThreadLocalTargetSource：为不同的线程提供不同的目标对象。    
 - 自定义的TargetSource
-
+```java
+public interface TargetSource extends TargetClassAware {
+    Class<?> getTargetClass();//返回目标对象类型
+    boolean isStatic();//是否要返回同一个目标对象实例
+    Object getTarget() throws Exception;//返回哪个目标对象实例
+    void releaseTarget(Object target) throws Exception;//isStatic为false，具体调用过程结束的时候调用，释放当前调用的目标对象
+}
+```
 
 
