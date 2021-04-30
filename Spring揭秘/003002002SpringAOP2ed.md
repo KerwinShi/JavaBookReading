@@ -108,6 +108,32 @@ public @interface Pointcut {
 AspectJProxyFactory或者AnnotationAwareAspectJAutoProxyCreator通过反射获取到Aspect的Pointcut后，构造一个AspectJExpressionPointcut对象实例，得到Pointcut表达式，还是通过ClassFilter和MethodMatcher进行具体的匹配工作，只不过在实现的时候委托AspectJ的类库完成具体的工作。  
 
 #### 3.@AspectJ形式的Advice
+@AspectJ形式的Advice定义实际就是使用@AspectJ标注的Aspect定义类中的普通方法，只不过被相应的注解标注了  
+- @Before  
+- @AfterReturing  
+- @AfterThrowing  
+- @After  
+- @Around  
+- @DeclareParents  
+    标注Introduction类型的Advice，但是该注解对应标注对象的域，而不是方法。
+
+使用：可以直接指定@AspectJ形式的Pointcut，也可以指定单独声明的@Pointcut类型的Pointcut Signature
+```java
+@Aspect
+public class MockAspect{
+    @Pointcut("execution(* destryo(..))")
+    public void destroy(){}
+
+    //直接指定@AspectJ形式的Pointcut
+    @Before("execution(public void *.mthodName(String))")
+    public void setUpResourceFloder(){
+
+    }
+
+    //指定单独声明的@Pointcut类型的Pointcut Signature
+    @After("destroy()")
+}
+```
 
 
 
