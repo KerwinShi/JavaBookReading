@@ -290,20 +290,67 @@ TaskExecutor taskExecutor  = new ConcurrentTaskExecutor(executor);
 
 
 ## Spring远程方案（分布式）  
->以前，对象间进行调用的时候，对象都是在相同进程中的，但是有一天，对象之间距离比较远，怎么办？进入分布式的领域了，这时候其实就需要使用RMI、EJB、Web服务等手段  
+>以前，对象间进行调用的时候，对象都是在相同进程中的，但是有一天，对象之间距离比较远，怎么办？进入分布式的领域了，这时候其实就需要使用RMI、EJB、Web服务等手段（大部分情况其实不需要分布式，这种情况下就不要主动去引入分布式，复杂化我们的系统）  
+
+### Spring Remoting架构
+组合Service Exporter和Service Accessor  
+#### 远程访问异常体系
+>远程访问异常的中可能发生各种异常，本地调用不用关心，因为并不存在，这些异常纯粹是引入分布式架构，需要执行各种远程机制进行服务访问后的产物  
+各种远程方案特定的异常类型在采用Spring Remoting这套标准远程访问体系之后将被转译。
+![RemoteAccessException](./Image/007/RemoteAccessException.png)     
+
+#### 统一的远程服务公开与访问方式
+几种远程交互方式：  
+- 面向消息中间件（MOM）使用的MessagePassing方式  
+- 数据库管理系统(DBMS)使用的共享存储区Shared Repository方式  
+- RPC（remote procedure call）方式（Spring Remoting的行为基础）  
+
+>RPC是建立在客户端-服务端模型上的（C/S），客户端发起请求，请求数据通过相应协议传输到服务器端，服务器端处理后将处理结果返回给发起请求的客户端（返回结果之前，客户端处于阻塞状态）  
+
+```Service Exporter和Service Accessor```就是Spring Remoting的核心所在
+#####  Service Exporter
+>负责远程服务对象的公开工作，根据使用的远程机制接收服务请求，对请求内容进行解组（un-marshaling），根据解组后的请求内容调用本地服务对象，调用完成后，将结果重新编组（marshaling）发送到客户端  
+
+##### Service Accessor
+>帮助客户端对远程服务对象进行远程访问，客户端发起请求后，Service Accessor对请求内容进行编组，然后根据使用的远程机制对编组后的内容进行发送；收到Service Exporter的结果后，对调用结果进行解组，把解组后的调用结果传给本地的客户端对象使用  
+
+![远程访问机制模型](./Image/007/远程访问机制模型.png)    
+
+##### Spring Remoting  
+>场景：之前提供给前端请求用的接口，现在要通过远程访问的方式提供给其他客户端使用  
+
+###### RMI方案
+RMI是java SE的标准远程机制，采用java序列化机制进行远程数据传输，Spring Remoting在此基础上进行封装，在支持传统的RMI编程的同时，引入RMI Invoker机制进一步解除业务对象与RMI之间的耦合
+- 公开远程服务  
+1.继承接口java.rmi.Remote，抛出异常RemoteException，且接口定义的方法参数和返回值都要符合Java序列化需求  
+2.引入RMI Invoker机制，可以避免接口java.rmi.Remote和异常RemoteException对业务接口的侵入，同样的配置方式，背后的机制变了，把这部分工作交给了RemoteInvocationHandler，当RmiServiceExporter检测到业务接口不符合RMI规范的时候使用RMI Invoker机制从invoke()方法获取被调用业务方法的信息，然后通过反射调用方法。
+- 使用远程服务
+通过RmiProxyFactoryBean访问，创建一个实际业务对象的代理对象，通过代理对象访问实际的业务方法  
+
+###### 基于HTTP的轻量级方案  
+>基于http远程方案的实现原型：使用浏览器访问其实就是远程访问，要将一个本地服务以http的方式公开给远程客户端使用，最简单的就是提供一个servlet统一接客户端的请求，然后调用本地服务最终返回给相应的客户端。因为Spring MVC已经有DispatchServlet，要公开相应的服务对象，只需要有相应的Handler（包括controller）；HttpRequestHandler就是Spring Remoting提供的handler。  
+![HttpInvokerServiceExporter](./Image/007/HttpInvokerServiceExporter.png)    
+- Spring框架自行开发的Http Invoker方案
+采用标准的Java序列化机制，HttpInvokerServiceExporter
+
+- 基于Caucho的Hessian远程方案  
+采用二进制和xml文本形式进行序列化
+
+- 基于Caucho的Burlap远程方案
 
 
+###### 基于Web服务的远程方案
 
 
+###### 基于JMS的远程方案
+通过消息队列交互，Service Accessor发送消息到Destination ，Service Exporter从Destination接收，返回结果到指定的Destination
 
-
-
-
-
-
-
-
-
+###### 扩展方案  
+一个中心，两个基本点，RemoteInvocation为中心，RemoteInvocationFactory和RemoteInvocationExecutor为基本点
+![一个中心两个基本点](./Image/007/一个中心两个基本点.png)   
+RemoteInvocation实际是一个数据对象，包括调用方法、调用方法参数类型、调用方法的参数三项信息。  
+RemoteInvocationFactory是数据来源，在基于各种远程方案的Service Accessor通过MethodInterceptor拦截对应方法，封装数据为RemoteInvocation，然后返回给Service Accessor，然后给到Service Exporter 
+RemoteInvocationExecutor根据Service Exporter收到的RemoteInvocation调用对应方法，
 
 
 
